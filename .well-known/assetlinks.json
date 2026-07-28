@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "io.github.sanailcso.tikitaka",
+      "sha256_cert_fingerprints": [
+        "D3:87:93:17:7D:23:C4:96:7E:C2:A5:E1:28:93:4F:64:4A:15:DB:4A:23:EC:70:A0:51:97:A0:21:AD:C4:7C:39"
+      ]
+    }
+  }
+]
