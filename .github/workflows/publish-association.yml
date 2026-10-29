@@ -1,0 +1,53 @@
+name: Publicar asociación Android
+
+on:
+  pull_request:
+    paths: ['.github/workflows/publish-association.yml']
+  push:
+    branches: [main]
+    paths: ['.well-known/assetlinks.json', '.github/workflows/publish-association.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+
+concurrency:
+  group: publish-android-association
+  cancel-in-progress: false
+
+jobs:
+  publish-merged-main:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Publicar únicamente la asociación ya incorporada a main
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          python3 - <<'PY'
+          import urllib.request,urllib.error,json,base64,os,time
+          repo=os.environ['REPOSITORY']
+          headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}
+          def api(path,method='GET'):
+              req=urllib.request.Request('https://api.github.com/repos/'+repo+path,data=b'{}' if method=='POST' else None,headers=headers,method=method)
+              with urllib.request.urlopen(req,timeout=30) as r:return json.load(r)
+          # Never publish PR branch contents. This file must already be reviewed and merged.
+          source=api('/contents/.well-known/assetlinks.json?ref=main')
+          expected=json.loads(base64.b64decode(source['content']))
+          assert any(x.get('target',{}).get('package_name')=='es.tikitaka.club.avisos' for x in expected)
+          build=api('/pages/builds','POST')
+          print('Publicación de main solicitada:',build.get('status'))
+          for attempt in range(60):
+              try:
+                  request=urllib.request.Request('https://sanailcso.github.io/.well-known/assetlinks.json?verify='+str(time.time_ns()),headers={'Cache-Control':'no-cache'})
+                  with urllib.request.urlopen(request,timeout=20) as response:published=json.load(response)
+                  if published==expected:
+                      print('Verificado: el dominio sirve la asociación de main y la firma de Tiki Taka Avisos.')
+                      break
+              except (urllib.error.URLError,ValueError):pass
+              time.sleep(5)
+          else:raise RuntimeError('La asociación todavía no está publicada; revisar la compilación Pages.')
+          PY
