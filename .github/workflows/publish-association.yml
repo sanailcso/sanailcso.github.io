@@ -1,0 +1,81 @@
+name: Publicar asociación Android
+on:
+  pull_request:
+    paths: ['.well-known/assetlinks.json', '.github/workflows/publish-association.yml']
+  push:
+    branches: [main]
+    paths: ['.well-known/assetlinks.json', '.github/workflows/publish-association.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-android-association
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validar asociación y preparar sitio estático
+        run: |
+          python3 - <<'PY'
+          import json,pathlib,shutil
+          source=pathlib.Path('.well-known/assetlinks.json')
+          entries=json.loads(source.read_text())
+          assert isinstance(entries,list) and entries
+          for entry in entries:
+              target=entry['target']
+              assert target['namespace']=='android_app'
+              assert 'delegate_permission/common.handle_all_urls' in entry['relation']
+              for fingerprint in target['sha256_cert_fingerprints']:
+                  assert len(fingerprint.split(':'))==32
+          assert any(x['target']['package_name']=='es.tikitaka.club.avisos' for x in entries)
+          output=pathlib.Path('_site/.well-known');output.mkdir(parents=True,exist_ok=True)
+          shutil.copyfile(source,output/'assetlinks.json')
+          pathlib.Path('_site/.nojekyll').touch()
+          PY
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  publish-main:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publicar main con el mecanismo oficial de Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  verify-main:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: publish-main
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Comprobar archivo realmente publicado
+        run: |
+          python3 - <<'PY'
+          import urllib.request,urllib.error,json,pathlib,time
+          expected=json.loads(pathlib.Path('.well-known/assetlinks.json').read_text())
+          for attempt in range(60):
+              try:
+                  req=urllib.request.Request('https://sanailcso.github.io/.well-known/assetlinks.json?verify='+str(time.time_ns()),headers={'Cache-Control':'no-cache'})
+                  with urllib.request.urlopen(req,timeout=20) as response:published=json.load(response)
+                  if published==expected:
+                      print('Dominio verificado: sirve la asociación de la APK Tiki Taka Avisos.')
+                      break
+              except (urllib.error.URLError,ValueError):pass
+              time.sleep(5)
+          else:raise RuntimeError('El dominio no sirve la asociación actual; revisar Pages.')
+          PY
