@@ -1,11 +1,25 @@
 [
   {
-    "relation": ["delegate_permission/common.handle_all_urls"],
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
     "target": {
       "namespace": "android_app",
       "package_name": "io.github.sanailcso.tikitaka",
       "sha256_cert_fingerprints": [
         "D3:87:93:17:7D:23:C4:96:7E:C2:A5:E1:28:93:4F:64:4A:15:DB:4A:23:EC:70:A0:51:97:A0:21:AD:C4:7C:39"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "es.tikitaka.club.avisos",
+      "sha256_cert_fingerprints": [
+        "67:96:41:21:82:29:57:4C:1B:00:70:FE:E4:D3:91:BC:D9:B8:49:70:1A:AE:F5:F0:B8:2D:B5:81:90:3F:FC:4E"
       ]
     }
   }
